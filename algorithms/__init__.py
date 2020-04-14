@@ -303,3 +303,113 @@ def off_policy_monte_carlo_control(
             W = W / b[st, at]
 
     return q, pi
+
+
+def tabular_td_zero_prediction(
+        pi: np.ndarray,
+        is_terminal_func: Callable,
+        reset_func: Callable,
+        step_func: Callable,
+        episodes_count: int = 100000,
+        max_steps_per_episode: int = 100,
+        gamma: float = 0.99,
+        alpha: float = 0.01
+) -> np.ndarray:
+    states = np.arange(pi.shape[0])
+    actions = np.arange(pi.shape[1])
+    V = np.random.random(pi.shape[0])
+    for s in states:
+        if is_terminal_func(s):
+            V[s] = 0
+
+    for episode_id in range(episodes_count):
+        s = reset_func()
+
+        step = 0
+        while not is_terminal_func(s) and step < max_steps_per_episode:
+            a = np.random.choice(actions, p=pi[s])
+            (s_p, r, t) = step_func(s, a)
+            V[s] += alpha * (r + gamma * V[s_p] - V[s])
+            s = s_p
+            step += 1
+
+    return V
+
+
+def tabular_sarsa_control(
+        states_count: int,
+        actions_count: int,
+        reset_func: Callable,
+        is_terminal_func: Callable,
+        step_func: Callable,
+        episodes_count: int = 50000,
+        max_steps_per_episode: int = 10,
+        epsilon: float = 0.2,
+        alpha: float = 0.1,
+        gamma: float = 0.99,
+) -> (np.ndarray, np.ndarray):
+    states = np.arange(states_count)
+    actions = np.arange(actions_count)
+    q = np.random.random((states_count, actions_count))
+    for s in states:
+        if is_terminal_func(s):
+            q[s, :] = 0.0
+
+    for episode_id in range(episodes_count):
+        s = reset_func()
+        rdm = np.random.random()
+        a = np.random.choice(actions) if rdm < epsilon else np.argmax(q[s, :])
+        step = 0
+        while not is_terminal_func(s) and step < max_steps_per_episode:
+            (s_p, r, t) = step_func(s, a)
+            rdm = np.random.random()
+            a_p = np.random.choice(actions) if rdm < epsilon else np.argmax(q[s_p, :])
+            q[s, a] += alpha * (r + gamma * q[s_p, a_p] - q[s, a])
+            s = s_p
+            a = a_p
+            step += 1
+
+    pi = np.zeros_like(q)
+    for s in states:
+        pi[s, :] = epsilon / actions_count
+        pi[s, np.argmax(q[s, :])] = 1.0 - epsilon + epsilon / actions_count
+
+    return q, pi
+
+
+def tabular_q_learning_control(
+        states_count: int,
+        actions_count: int,
+        reset_func: Callable,
+        is_terminal_func: Callable,
+        step_func: Callable,
+        episodes_count: int = 50000,
+        max_steps_per_episode: int = 10,
+        epsilon: float = 0.2,
+        alpha: float = 0.1,
+        gamma: float = 0.99,
+) -> (np.ndarray, np.ndarray):
+    states = np.arange(states_count)
+    actions = np.arange(actions_count)
+    q = np.random.random((states_count, actions_count))
+    for s in states:
+        if is_terminal_func(s):
+            q[s, :] = 0.0
+
+    for episode_id in range(episodes_count):
+        s = reset_func()
+        step = 0
+        while not is_terminal_func(s) and step < max_steps_per_episode:
+            rdm = np.random.random()
+            a = np.random.choice(actions) if rdm < epsilon else np.argmax(q[s, :])
+            (s_p, r, t) = step_func(s, a)
+            q[s, a] += alpha * (r + gamma * np.max(q[s_p, :]) - q[s, a])
+            s = s_p
+            step += 1
+
+    pi = np.zeros_like(q)
+    for s in states:
+        pi[s, :] = 0.0
+        pi[s, np.argmax(q[s, :])] = 1.0
+
+    return q, pi
