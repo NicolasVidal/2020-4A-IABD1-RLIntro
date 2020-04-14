@@ -31,3 +31,18 @@ P[num_states - 1, :, :, 0] = 0.0
 
 P[:, :, width - 1, 1] = -5.0
 P[:, :, num_states - 1, 1] = 1.0
+
+
+def reset() -> int:
+    return 0
+
+
+def is_terminal(state: int) -> bool:
+    return state in T
+
+
+def step(state: int, a: int) -> (int, float, bool):
+    assert (state not in T)
+    s_p = np.random.choice(S, p=P[state, a, :, 0])
+    r = P[state, a, s_p, 1]
+    return s_p, r, (s_p in T)
